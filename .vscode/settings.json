@@ -1,8 +1,13 @@
 {
     "makefile.launchConfigurations": [
         {
-            "cwd": "${workspaceFolder}/build/debug",
-            "binaryPath": "${workspaceFolder}/build/debug/day01",
+            "cwd": "${workspaceFolder}/build/release",
+            "binaryPath": "${workspaceFolder}/build/release/day01",
+            "binaryArgs": []
+        },
+        {
+            "cwd": "${workspaceFolder}/aoc2025/build/debug",
+            "binaryPath": "${workspaceFolder}/aoc2025/build/debug/day01",
             "binaryArgs": []
         }
     ],
