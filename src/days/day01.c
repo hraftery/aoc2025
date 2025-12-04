@@ -33,12 +33,32 @@ void part1(FILE *f)
     //printf("%c %d => %d\n", dir, dist, pos);
   }
 
-  fclose(f);
-
   printf("%d", zeroCount);
 }
 
 void part2(FILE *f)
 {
-  printf("This is day %d, part 2.\n", DAY);
+  char dir;
+  int dist;
+  
+  int zeroCount = 0;
+  int pos = 50;
+  const int WRAP = 100;
+  while(fscanf(f, "%c%d\n", &dir, &dist) == 2)
+  {
+    if(dir == 'L')
+    {
+      zeroCount -= ((pos == 0 ? pos : pos - WRAP) - dist) / WRAP;
+      pos = mod(pos - dist, WRAP);
+    }
+    else
+    {
+      zeroCount += (pos + dist) / WRAP;
+      pos = mod(pos + dist, WRAP);
+    }
+    
+    //printf("%c %d => %d (%d)\n", dir, dist, pos, zeroCount);
+  }
+
+  printf("%d", zeroCount);
 }

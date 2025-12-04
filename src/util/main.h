@@ -35,6 +35,7 @@ int main(int argc, char* argv[])
     part1(f);
     printf("\n");
   }
+  rewind(f);
   if(part == 0 || part == 2)
   {
     printf("Part2: ");
