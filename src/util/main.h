@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
   else
     sprintf(inputFilename, "input/%02u.txt", DAY);
   
-  FILE *f = fopen(inputFilename, "f");
+  FILE *f = fopen(inputFilename, "r");
 
   if(part == 0 || part == 1)
   {
