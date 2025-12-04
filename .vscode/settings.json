@@ -1,0 +1,20 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "${workspaceFolder}/build/debug",
+            "binaryPath": "${workspaceFolder}/build/debug/day01",
+            "binaryArgs": []
+        }
+    ],
+    "makefile.buildLog": "build/build.log",
+    "makefile.configurations": [
+        {
+            "name": "Debug",
+            "makeArgs": []
+        },
+        {
+            "name": "Release",
+            "makeArgs": ["BUILD=release"]
+        }
+    ]
+}
