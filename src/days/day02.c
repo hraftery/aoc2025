@@ -169,30 +169,23 @@ void part2(FILE *f)
       sprintf(idStr, "%llu", id);
       int numDigits = strlen(idStr);
 
-      int repeatLen;
-      for(repeatLen=1; repeatLen<=numDigits/2; repeatLen++)
+      for(int repeatLen=1; repeatLen<=numDigits/2; repeatLen++)
       {
         if(numDigits % repeatLen != 0)
           continue;
         
-        int repeatIdx;
-        for(repeatIdx=0; repeatIdx<repeatLen; repeatIdx++)
+        for(int repeatIdx=0; repeatIdx<repeatLen; repeatIdx++)
         {
           char c = idStr[repeatIdx];
-          int idIdx;
-          for(idIdx=repeatLen+repeatIdx; idIdx<numDigits; idIdx+=repeatLen)
+          for(int idIdx=repeatLen+repeatIdx; idIdx<numDigits; idIdx+=repeatLen)
             if(idStr[idIdx] != c)
-              break;
-          if(idIdx < numDigits)
-            break;
+              goto nextRepeatLen;
         }
-        if(repeatIdx >= repeatLen)
-          break;
-      }
-      if(repeatLen<=numDigits/2)
-      {
         invalidIdSum += id;
         printf("  Invalid ID: %s. Invalid ID sum: %llu. Repeat len: %d.\n", idStr, invalidIdSum, repeatLen);
+        break;
+
+nextRepeatLen:;
       }
     }
 
