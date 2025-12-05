@@ -21,5 +21,8 @@
             "name": "Release",
             "makeArgs": ["BUILD=release"]
         }
-    ]
+    ],
+    "files.associations": {
+        "main.h": "c"
+    }
 }

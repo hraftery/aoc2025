@@ -117,6 +117,12 @@ typedef unsigned char byte;
  */
 #define SIGN(x)             ((x > 0) - (x < 0))
 
+#define IS_EVEN(x)          ((x) % 2 == 0)
+#define IS_ODD(x)           ((x) % 2 == 1)
+
+/** Return true if x is not zero and is an integer power of 2 */
+#define IS_POWER_OF_TWO(x)  (x && (!(x & (x - 1))))
+
 /**
  * Get the number of wordSize words required to wholly contain numBytes.
  * Eg. NUM_WORDS_FOR_BYTES(12,5) = 3, NUM_WORDS_FOR_BYTES(4,4) = 1.
@@ -137,8 +143,6 @@ typedef unsigned char byte;
 #define CHARIFY(c)          CHARIFY_HELPER(c)
 #define CHARIFY_HELPER(c)   *#c /* Ref: https://stackoverflow.com/a/79187995/3697870 */
 
-/** Return true if x is not zero and is an integer power of 2 */
-#define IS_POWER_OF_TWO(x)  (x && (!(x & (x - 1))))
 
 /**
  * Allow macro names to be overloaded with different numbers of arguments.
