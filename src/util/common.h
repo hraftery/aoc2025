@@ -8,6 +8,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef unsigned int uint;
+
 /** Remove ambiguity around the signedness of a char */
 typedef unsigned char byte;
 
