@@ -7,14 +7,13 @@ BLD_DIR := build/${BUILD}
 SRC_DIR := src
 
 # List all days once here. If a day does not exist it will just produce a warning.
-DAYS := day01 day02
+DAYS := day01 day02 day03
 
 # Instead of including all sources in every build with something like
 #COMMON_SRCS := ${wildcard ${SRC_UTIL_DIR}/*.c}
-# each day has its own set of source files. Specify them here, relative to SRC_DIR
-# and without the .c suffix.
-DAY01_REQS := days/day01
-DAY02_REQS := days/day02
+# each day has its own set of source files. Specify anything that is addition to the
+# expect "days/dayNN.c" here. Specify relative to SRC_DIR and without the .c suffix.
+#DAY01_REQS := util/util
 
 CFLAGS.debug   := -g -O0 -DDEBUG
 CFLAGS.release := -O3 -DNDEBUG
@@ -34,17 +33,17 @@ all: ${DAYS}
 ${DAYS}: day%: ${BLD_DIR}/day%
 
 # Whoa, okay, this is a double triple banger. It produces a target rule for all DAYS in BLD_DIR,
-# where the prerequisites are specified by each of the DAYn_REQS variables, prepended with BLD_DIR
-# and appended with ".o". The .SECONDEXPANSION allow $* (the stem from the static pattern rule)
-# to be used as part of the variable name. The pc variable allows the % used by patsubst to also
-# be delayed until $* is expanded. Ref: https://stackoverflow.com/a/25592360/3697870
+# where the prerequisites are specified by the days/day main file, plus each of the DAYn_REQS
+# variables, prepended with BLD_DIR and appended with ".o". The .SECONDEXPANSION allow $* (the
+# stem from the static pattern rule) to be used as part of the variable name. The pc variable
+# allows the % used by patsubst to also be delayed until $* is expanded. Ref: https://stackoverflow.com/a/25592360/3697870
 # Finally, the first patsubst produces all the "BLD_DIR/dayN" targets for the static pattern rule.
 # And finally, finally, note the following targets have this Makefile itself as a pre-req. So any
 # change to the Makefile (eg. compiler settings) prompts a full rebuild.
 .SECONDEXPANSION:
 pc := %
 ${patsubst %, ${BLD_DIR}/%, ${DAYS}}: \
-${BLD_DIR}/day%: $${patsubst $${pc}, ${BLD_DIR}/$${pc}.o, $${DAY$$*_REQS}} Makefile
+${BLD_DIR}/day%: $${patsubst $${pc}, ${BLD_DIR}/$${pc}.o, days/day$$* $${DAY$$*_REQS}} Makefile
 	${CC} ${filter-out Makefile,$^} -o $@ ${LDFLAGS}
 
 # All c files are compiled to object files the same way
