@@ -7,13 +7,14 @@ BLD_DIR := build/${BUILD}
 SRC_DIR := src
 
 # List all days once here. If a day does not exist it will just produce a warning.
-DAYS := day01 day02 day03 day04 day05 day06 day07
+DAYS := day01 day02 day03 day04 day05 day06 day07 day08
 
 # Instead of including all sources in every build with something like
 #COMMON_SRCS := ${wildcard ${SRC_UTIL_DIR}/*.c}
 # each day has its own set of source files. Specify anything that is addition to the
 # expect "days/dayNN.c" here. Specify relative to SRC_DIR and without the .c suffix.
 #DAY01_REQS := util/util
+DAY08_REQS := util/intset
 
 CFLAGS.debug   := -g -O0 -DDEBUG
 CFLAGS.release := -O3 -DNDEBUG
