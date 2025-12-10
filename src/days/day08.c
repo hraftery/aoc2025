@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define MAX_BOXES     1000
-#define MAX_EDGES     100000
+#define MAX_EDGES     10000
 #define MAX_SUBGRAPHS (MAX_BOXES/2)
 #define MAX_LARGEST_CIRCUITS 3
 
@@ -190,5 +190,36 @@ void part1(FILE *f)
 
 void part2(FILE *f)
 {
-  printf("This is day %d, part 2.\n", DAY);
+  if(!gNumBoxes)
+    load_boxes(f);
+  
+  const int NUM_CONNECTIONS = gNumBoxes == 1000 ? MAX_EDGES : 40;
+  find_shortest_edges(NUM_CONNECTIONS);
+  
+  //Now make the connections one by one, populating an array of sub graphs formed as we go.
+  for(int c=0; c<NUM_CONNECTIONS; c++)
+  {
+    sEdge *pEdge = &gShortestEdges[c];
+    add_connection(pEdge);
+
+    printf("\n");
+    for(int i=0; i<gNumSubGraphs; i++)
+      printf("%u\t", INTSET_size(gSubGraphs[i]));
+
+    if(INTSET_size(gSubGraphs[0]) == (tIntsetElem)gNumBoxes)
+    {
+      sCoord3D *a = &gBoxes[pEdge->nodeA];
+      sCoord3D *b = &gBoxes[pEdge->nodeB];
+
+      // printf("\n[%zu:%u,%u,%u]"  , pEdge->nodeA, a->x, a->y, a->z);
+      // printf("\n[%zu:%u,%u,%u]\n", pEdge->nodeB, b->x, b->y, b->z);
+
+      uint64_t result = (uint64_t)a->x * b->x;
+      printf("%d, %llu", c, result);
+
+      return;
+    }
+  }
+
+  printf("No result!");
 }
