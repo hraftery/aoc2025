@@ -15,6 +15,7 @@ DAYS := day01 day02 day03 day04 day05 day06 day07 day08 day09
 # expect "days/dayNN.c" here. Specify relative to SRC_DIR and without the .c suffix.
 #DAY01_REQS := util/util
 DAY08_REQS := util/intset
+DAY09_REQS := util/intset
 
 CFLAGS.debug   := -g -O0 -DDEBUG
 CFLAGS.release := -O3 -DNDEBUG
