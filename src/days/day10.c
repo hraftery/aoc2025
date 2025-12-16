@@ -179,12 +179,89 @@ int compare_joltage(sMachine *m, uint8_t buttonPresses[])
   return 0;
 }
 
+int compare_buttons(const void *a, const void *b)
+{
+  int aSize = __builtin_popcount(*((tLightBits*)a));
+  int bSize = __builtin_popcount(*((tLightBits*)b));
+  if(aSize > bSize) return  1;
+  if(aSize < bSize) return -1;
+  return 0;
+}
+
+int compare_buttons_rev(const void *a, const void *b)
+{
+  int aSize = __builtin_popcount(*((tLightBits*)a));
+  int bSize = __builtin_popcount(*((tLightBits*)b));
+  if(aSize > bSize) return -1;
+  if(aSize < bSize) return  1;
+  return 0;
+}
+
+
 uint16_t sum_presses(uint8_t presses[], uint8_t numButtons)
 {
   uint16_t sum=0;
   for(uint8_t i=0; i<numButtons; i++)
     sum += presses[i];
   return sum;
+}
+
+
+bool do_find_solution2(uint8_t iButton, uint16_t remainingJoltages[MAX_JOLTAGES],
+                       sMachine *m, uint8_t pSolution[], const uint8_t numButtons)
+{
+  //Max number of times we can press iButton is min of all remaining joltages that this button increments.
+  uint8_t maxPresses = UINT8_MAX;
+  for(uint8_t ji=0; ji<m->numJoltages; ji++)
+  {
+    if((m->buttons[iButton] & (1<<ji)) && remainingJoltages[ji] < maxPresses)
+    {
+      maxPresses = remainingJoltages[ji];
+      if(maxPresses == 0) //can't get any lower
+        break;
+    }
+  }
+
+  //Start with the most presses we can get away with, and work backwards from there.
+  for(uint8_t presses=maxPresses; presses!=UINT8_MAX; presses--) //!=MAX is equiv. to >0 in unsigned
+  {
+    uint16_t newRemainingJoltages[MAX_JOLTAGES];
+    bool allZeros = true;
+
+    if(presses == 0) //don't bother applying presses
+    {
+      memcpy(newRemainingJoltages, remainingJoltages, m->numJoltages*sizeof(m->joltages[0]));
+      allZeros = false;
+    }
+    else
+    {
+      for(uint8_t ji=0; ji<m->numJoltages; ji++)
+      {
+        newRemainingJoltages[ji] = remainingJoltages[ji];
+        if(m->buttons[iButton] & (1<<ji))
+          newRemainingJoltages[ji] -= presses;
+        if(newRemainingJoltages[ji] != 0)
+          allZeros = false;
+      }
+    }
+
+    if(allZeros ||                                                                     //winner,
+       (iButton < m->numButtons-1 &&                                                   //or go deeper
+        do_find_solution2(iButton+1, newRemainingJoltages, m, pSolution, numButtons))) //and find a winner there
+    {
+      //Fill in our bit of the solution and bubble up
+      pSolution[iButton] = presses;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool find_solution2(sMachine *m, uint8_t pSolution[], uint8_t numButtons)
+{
+  uint16_t remainingJoltages[MAX_JOLTAGES];
+  memcpy(remainingJoltages, m->joltages, sizeof(m->joltages));
+  return do_find_solution2(0, remainingJoltages, m, pSolution, numButtons);
 }
 
 void part2(FILE *f)
@@ -200,25 +277,29 @@ void part2(FILE *f)
 
     sMachine *m = &gMachines[mi];
     uint8_t buttonPresses[MAX_BUTTONS] = { 0 };
-    uint8_t bpi = 0;
-    uint16_t minPresses = UINT16_MAX;
 
-    while(bpi < m->numButtons)
-    {
-      buttonPresses[bpi]++;
-      switch(compare_joltage(m, buttonPresses))
-      {
-        case 0: //winner
-          minPresses = MIN(minPresses, sum_presses(buttonPresses, m->numButtons));
-        case -1: //too small
-          bpi=0;
-          break;
+    //sort the buttons by how much they contribute
+    qsort(m->buttons, m->numButtons, sizeof(m->buttons[0]), compare_buttons_rev);
+    
+    find_solution2(m, buttonPresses, m->numButtons);
+    uint16_t minPresses = sum_presses(buttonPresses, m->numButtons);
 
-        case +1: //too big
-          buttonPresses[bpi++] = 0;
-          break;          
-      }
-    }
+    // while(bpi < m->numButtons)
+    // {
+    //   buttonPresses[bpi]++;
+    //   switch(compare_joltage(m, buttonPresses))
+    //   {
+    //     case 0: //winner
+    //       minPresses = MIN(minPresses, sum_presses(buttonPresses, m->numButtons));
+    //     case -1: //too small
+    //       bpi=0;
+    //       break;
+
+    //     case +1: //too big
+    //       buttonPresses[bpi++] = 0;
+    //       break;          
+    //   }
+    // }
 
     double timeElapsed = ((double) (clock() - start)) / CLOCKS_PER_SEC;
     printf("%hu: %hu (%f)\n", mi, minPresses, timeElapsed);
