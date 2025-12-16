@@ -2,6 +2,9 @@
 #include "main.h"
 #include "common.h"
 
+#include <string.h>
+#include <time.h>
+
 #define MAX_BUTTONS   16
 #define MAX_JOLTAGES  16
 #define MAX_MACHINES  200
@@ -13,7 +16,6 @@ typedef uint16_t tButtonBits;
 typedef struct machine {
   uint8_t     numLights;
   tLightBits  targLights;
-  //tLightBits  currLights;
   uint8_t     numButtons;
   tLightBits  buttons[MAX_BUTTONS];
   uint8_t     numJoltages;
@@ -30,7 +32,6 @@ void parse_input(FILE *f)
   {
     sMachine *pMachine = &(gMachines[gNumMachines++]);
 
-    //pMachine->currLights = 0x0000;
     pMachine->targLights = 0x0000; //allow easy checks with equality
     pMachine->numLights = 0;
 
@@ -149,7 +150,80 @@ void part1(FILE *f)
 }
 
 
+
+int compare_joltage(sMachine *m, uint8_t buttonPresses[])
+{
+  uint16_t joltage[MAX_JOLTAGES] = { 0 };
+  for(uint8_t bi=0; bi<m->numButtons; bi++)
+  {
+    if(buttonPresses[bi] == 0)
+      continue;
+
+    for(uint8_t ji=0; ji<m->numJoltages; ji++)
+    {
+      if(m->buttons[bi] & (1<<ji))
+      {
+        joltage[ji] += buttonPresses[bi];
+        if(joltage[ji] > m->joltages[ji])
+          return +1;
+      }
+    }
+  }
+
+  for(uint8_t ji=0; ji<m->numJoltages; ji++)
+  {
+    if(joltage[ji] < m->joltages[ji])
+        return -1;
+  }
+
+  return 0;
+}
+
+uint16_t sum_presses(uint8_t presses[], uint8_t numButtons)
+{
+  uint16_t sum=0;
+  for(uint8_t i=0; i<numButtons; i++)
+    sum += presses[i];
+  return sum;
+}
+
 void part2(FILE *f)
 {
-  printf("This is day %d, part 2.\n", DAY);
+  if(gNumMachines == 0)
+    parse_input(f);
+
+  uint32_t totalPresses = 0;
+
+  for(uint16_t mi=0; mi<gNumMachines; mi++)
+  {
+    clock_t start = clock();
+
+    sMachine *m = &gMachines[mi];
+    uint8_t buttonPresses[MAX_BUTTONS] = { 0 };
+    uint8_t bpi = 0;
+    uint16_t minPresses = UINT16_MAX;
+
+    while(bpi < m->numButtons)
+    {
+      buttonPresses[bpi]++;
+      switch(compare_joltage(m, buttonPresses))
+      {
+        case 0: //winner
+          minPresses = MIN(minPresses, sum_presses(buttonPresses, m->numButtons));
+        case -1: //too small
+          bpi=0;
+          break;
+
+        case +1: //too big
+          buttonPresses[bpi++] = 0;
+          break;          
+      }
+    }
+
+    double timeElapsed = ((double) (clock() - start)) / CLOCKS_PER_SEC;
+    printf("%hu: %hu (%f)\n", mi, minPresses, timeElapsed);
+    totalPresses += minPresses;
+  }
+
+  printf("%u", totalPresses);
 }
