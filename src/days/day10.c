@@ -1,14 +1,22 @@
 #define DAY 10
 #include "main.h"
 #include "common.h"
+#include "rref.h"
 
 #include <string.h>
+#include <math.h>
+
+//#define VERBOSE
+#ifdef VERBOSE
 #include <time.h>
+#endif
 
 #define MAX_BUTTONS   16
 #define MAX_JOLTAGES  16
 #define MAX_MACHINES  200
 #define MAX_LIGHTS    10  /* informational */
+#define MAX_JOLTAGE   300 /* actual seems to be 287 */
+
 
 typedef uint16_t tLightBits;
 typedef uint16_t tButtonBits;
@@ -139,7 +147,9 @@ void part1(FILE *f)
 
       if(find_solution(m, numButtonsInUse, &buttonsInUse))
       {
+#ifdef VERBOSE
         printf("%hu: %hu\n", mi, numButtonsInUse);
+#endif
         totalButtons += numButtonsInUse;
         break;
       }
@@ -197,8 +207,7 @@ int compare_buttons_rev(const void *a, const void *b)
   return 0;
 }
 
-
-uint16_t sum_presses(uint8_t presses[], uint8_t numButtons)
+uint16_t sum_presses(uint16_t presses[], uint8_t numButtons)
 {
   uint16_t sum=0;
   for(uint8_t i=0; i<numButtons; i++)
@@ -206,62 +215,76 @@ uint16_t sum_presses(uint8_t presses[], uint8_t numButtons)
   return sum;
 }
 
+typedef struct {
+  sMachine    *m;
+  tMatrixElem (*matFlat)[];//[m->numJoltages][m->numButtons+1]
+  uint8_t     numFreeVariables;
+  uint8_t     *freeVariables;//[numFreeVariables];
+  uint16_t    *fvBounds;//[numFreeVariables];
+} sRecursionContext;
 
-bool do_find_solution2(uint8_t iButton, uint16_t remainingJoltages[MAX_JOLTAGES],
-                       sMachine *m, uint8_t pSolution[], const uint8_t numButtons)
+//2D arrays lose their 2D-ness when pointed to, so use this define like:
+//  MAT_TYPE(ctx->m, mat) = ctx->matFlat;
+//where "ctx" is the pointer to sRecursionContext, to get mat back from matFlat.
+#define MAT_TYPE(m, mat)  tMatrixElem (*const mat)[m->numButtons+1]
+
+
+uint16_t do_find_solution2(const sRecursionContext *ctx,
+                           uint8_t iFreeVariable, uint16_t solution[ctx->m->numButtons])
 {
-  //Max number of times we can press iButton is min of all remaining joltages that this button increments.
-  uint8_t maxPresses = UINT8_MAX;
-  for(uint8_t ji=0; ji<m->numJoltages; ji++)
+  if(iFreeVariable == ctx->numFreeVariables) //finished recursing, so solve the completed matrix
   {
-    if((m->buttons[iButton] & (1<<ji)) && remainingJoltages[ji] < maxPresses)
+    MAT_TYPE(ctx->m, mat) = ctx->matFlat;
+    for(uint8_t iRow=0; iRow<ctx->m->numJoltages; iRow++)
     {
-      maxPresses = remainingJoltages[ji];
-      if(maxPresses == 0) //can't get any lower
-        break;
+      tMatrixElem *row = mat[iRow];
+      //Now all the free variables are set, solve:
+      //  a*1 + b*f1 + c*f2 = j  =>  a = j - b*f1 - c*f2
+      //Find the index of 1, the lead.
+      uint8_t iLead;
+      for(iLead=iRow; iLead<ctx->m->numButtons; iLead++)
+        if(row[iLead] == 1)
+          break;
+      //Now do the calc in floats, because mat entries don't have to be whole numbers
+      double a = row[ctx->m->numButtons]; //j
+      for(uint8_t fvi=0; fvi<ctx->numFreeVariables; fvi++)
+        a -= solution[ctx->freeVariables[fvi]] * row[ctx->freeVariables[fvi]];
+      //We only accept solutions that are positive integers
+      double aInt = round(a);
+      if(aInt < 0 || fabs(aInt - a) > 0.0001f)
+        return UINT16_MAX; //no solution
+      solution[iLead] = aInt;
+    }
+    return sum_presses(solution, ctx->m->numButtons);
+  }
+  
+  //Otherwise, continue recursing
+  uint16_t minPresses = UINT16_MAX;
+  uint16_t thisSolution[ctx->m->numButtons];
+  //Turns out we only need to make one copy, because we update the same element each loop
+  memcpy(thisSolution, solution, sizeof(thisSolution));
+
+  for(uint16_t fv=0; fv<=ctx->fvBounds[iFreeVariable]; fv++)
+  {
+    thisSolution[ctx->freeVariables[iFreeVariable]] = fv; //Fill in freeVariable
+    uint16_t thisPresses = do_find_solution2(ctx, iFreeVariable+1, thisSolution); //And recurse
+
+    if(thisPresses < minPresses)
+    {
+      minPresses = thisPresses;
+      memcpy(solution, thisSolution, sizeof(thisSolution)); //allow solution to bubble up
     }
   }
 
-  //Start with the most presses we can get away with, and work backwards from there.
-  for(uint8_t presses=maxPresses; presses!=UINT8_MAX; presses--) //!=MAX is equiv. to >0 in unsigned
-  {
-    uint16_t newRemainingJoltages[MAX_JOLTAGES];
-    bool allZeros = true;
-
-    if(presses == 0) //don't bother applying presses
-    {
-      memcpy(newRemainingJoltages, remainingJoltages, m->numJoltages*sizeof(m->joltages[0]));
-      allZeros = false;
-    }
-    else
-    {
-      for(uint8_t ji=0; ji<m->numJoltages; ji++)
-      {
-        newRemainingJoltages[ji] = remainingJoltages[ji];
-        if(m->buttons[iButton] & (1<<ji))
-          newRemainingJoltages[ji] -= presses;
-        if(newRemainingJoltages[ji] != 0)
-          allZeros = false;
-      }
-    }
-
-    if(allZeros ||                                                                     //winner,
-       (iButton < m->numButtons-1 &&                                                   //or go deeper
-        do_find_solution2(iButton+1, newRemainingJoltages, m, pSolution, numButtons))) //and find a winner there
-    {
-      //Fill in our bit of the solution and bubble up
-      pSolution[iButton] = presses;
-      return true;
-    }
-  }
-  return false;
+  return minPresses;
 }
 
-bool find_solution2(sMachine *m, uint8_t pSolution[], uint8_t numButtons)
+uint16_t find_solution2(const sRecursionContext *ctx, uint16_t solution[ctx->m->numButtons])
 {
-  uint16_t remainingJoltages[MAX_JOLTAGES];
-  memcpy(remainingJoltages, m->joltages, sizeof(m->joltages));
-  return do_find_solution2(0, remainingJoltages, m, pSolution, numButtons);
+  //Kick off the recursion with an empty solution
+  for(uint8_t i=0; i<ctx->m->numButtons; i++)
+    solution[i] = 0;
+  return do_find_solution2(ctx, 0, solution);
 }
 
 void part2(FILE *f)
@@ -273,36 +296,101 @@ void part2(FILE *f)
 
   for(uint16_t mi=0; mi<gNumMachines; mi++)
   {
+#ifdef VERBOSE
     clock_t start = clock();
+#endif
 
     sMachine *m = &gMachines[mi];
-    uint8_t buttonPresses[MAX_BUTTONS] = { 0 };
 
-    //sort the buttons by how much they contribute
-    qsort(m->buttons, m->numButtons, sizeof(m->buttons[0]), compare_buttons_rev);
+    //Characteristic matrix has buttons as columns, augmented with joltages.
+    tMatrixSize matRows = m->numJoltages;
+    tMatrixSize matCols = m->numButtons+1;
+    tMatrixElem mat[matRows][matCols];
+
+    for(uint8_t bi=0; bi<m->numButtons; bi++)
+      for(uint8_t ji=0; ji<m->numJoltages; ji++)
+        mat[ji][bi] = m->buttons[bi] & (1<<ji) ? 1.0 : 0.0;
+    for(uint8_t ji=0; ji<m->numJoltages; ji++)
+      mat[ji][m->numButtons] = m->joltages[ji];
+
+    RREF_solve(matRows, matCols, mat);
+
+    //Find free variables
+    bool isBound[MAX_BUTTONS] = { false };
+    for(uint8_t ji=0; ji<m->numJoltages; ji++)
+    {
+      for(uint8_t bi=ji; bi<m->numButtons; bi++)
+      {
+        if(mat[ji][bi] == 1) //found a bound variable
+        {
+          isBound[bi] = true;
+          break;
+        }
+      }
+    }
+    //Now collect them
+    uint8_t freeVariables[MAX_BUTTONS];
+    uint8_t numFreeVariables = 0;
+    for(uint8_t bi=0; bi<m->numButtons; bi++)
+    {
+      if(!isBound[bi])
+        freeVariables[numFreeVariables++] = bi;
+    }
+    //Now find their upper bounds. There's lower bounds too, but we'll simply use zero.
+    uint16_t fvBounds[numFreeVariables];
+    //Init to MAX_JOLTAGE, because there's no point pressing any button more than MAX_JOLTAGE times.
+    for(int i=0; i<numFreeVariables; i++)
+      fvBounds[i] = MAX_JOLTAGE;
     
-    find_solution2(m, buttonPresses, m->numButtons);
-    uint16_t minPresses = sum_presses(buttonPresses, m->numButtons);
+    for(int i=0; i<2; i++) //apply bounds twice, to ensure bounds from first pass are applied
+    {
+      for(uint8_t rowi=0; rowi<matRows; rowi++)
+      {
+        tMatrixElem *row = mat[rowi];
+        for(uint8_t fvi=0; fvi<numFreeVariables; fvi++)
+        {
+          //Because mat is in RREF, each row is equation of form (assuming two free variables):
+          //  a*1 + b*f1 + c*f2 = j  =>  b*f1 = j - a - c*f2
+          //Where:
+          //  • a, b and c are number of presses of lead button, free variable 1 button and
+          //    free variable 2 button respectively
+          //  • f1 and f2 are coefficients of free variable buttons
+          //  • j is joltage for that row
+          //So max b can be is either:
+          //  b_max*f1 = j - a_min - c_min*f2 = j                            if f1 is +ve and f2 is +ve, or
+          //  b_max*f1 = j - a_min - c_max*f2 = j - c_max*f2                 if f1 is +ve and f2 is -ve, or
+          //  b_max*f1 = j - a_max - c_max*f2 = j - MAX_JOLTAGE - c_max*f2   if f1 is -ve and f2 is +ve, or
+          //  b_max*f1 = j - a_max - c_min*f2 = j - MAX_JOLTAGE              if f1 is -ve and f2 is -ve, or
+          //So in general, the max is j, maybe minus MAX_JOLTAGE, minus the max of all other free
+          //variables with opposite sign, all divided by the coefficient.
+          double f = row[freeVariables[fvi]];
+          if(f == 0) //special case, no constraint to apply
+            continue;
+          bool isNeg = f < 0;
+          tMatrixElem max = row[matCols-1] - (isNeg ? MAX_JOLTAGE : 0); //j, maybe minus MAX_JOLTAGE
+          for(uint8_t fvj=0; fvj<numFreeVariables; fvj++)
+          {
+            if(fvj==fvi)
+              continue;
+            if(row[freeVariables[fvj]] < 0 != isNeg) //opposite sign
+              max -= row[freeVariables[fvj]] * fvBounds[fvj];
+          }
+          max /= f;
+          if(max >= 0) //okay to floor to integer, because there's slack in MAX_JOLTAGE.
+            fvBounds[fvi] = MIN((uint16_t)max, fvBounds[fvi]);
+        }
+      }
+    }
+    
+    //Well finally! Solve the matrix, searching within fvBounds to find optimal (least presses) solution.
+    const sRecursionContext ctx = { m, mat, numFreeVariables, freeVariables, fvBounds };
+    uint16_t buttonPresses[m->numButtons];
+    uint16_t minPresses = find_solution2(&ctx, buttonPresses);
 
-    // while(bpi < m->numButtons)
-    // {
-    //   buttonPresses[bpi]++;
-    //   switch(compare_joltage(m, buttonPresses))
-    //   {
-    //     case 0: //winner
-    //       minPresses = MIN(minPresses, sum_presses(buttonPresses, m->numButtons));
-    //     case -1: //too small
-    //       bpi=0;
-    //       break;
-
-    //     case +1: //too big
-    //       buttonPresses[bpi++] = 0;
-    //       break;          
-    //   }
-    // }
-
+#ifdef VERBOSE
     double timeElapsed = ((double) (clock() - start)) / CLOCKS_PER_SEC;
     printf("%hu: %hu (%f)\n", mi, minPresses, timeElapsed);
+#endif
     totalPresses += minPresses;
   }
 

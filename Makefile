@@ -16,6 +16,7 @@ DAYS := day01 day02 day03 day04 day05 day06 day07 day08 day09 day10
 #DAY01_REQS := util/util
 DAY08_REQS := util/intset
 DAY09_REQS := util/intset
+DAY10_REQS := util/rref
 
 CFLAGS.debug   := -g -O0 -DDEBUG
 CFLAGS.release := -O3 -DNDEBUG
