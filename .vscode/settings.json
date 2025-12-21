@@ -24,6 +24,9 @@
     ],
     "files.associations": {
         "main.h": "c",
-        "common.h": "c"
-    }
+        "common.h": "c",
+        "rref.h": "c",
+        "stdint.h": "c"
+    },
+    "makefile.configureOnOpen": true
 }
